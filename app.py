@@ -7,22 +7,14 @@ from models.database import FaceDatabase
 import os
 from datetime import datetime
 import time
-import tempfile
 
 ADMIN_PASSWORD = "admin123"
 
 st.set_page_config(page_title="Yüz Tanıma Sistemi", layout="centered")
 st.title("Yüz Tanıma Sistemi")
 
-# Render'da çalışıp çalışmadığını kontrol et
-is_render = os.environ.get('RENDER', False)
-
 menu = ["Kullanıcı Kaydı (Admin)", "Yüz Doğrulama", "Kullanıcı Sil (Admin)", "Hatalı Giriş Logları"]
 choice = st.sidebar.selectbox("İşlem Seçin", menu)
-
-# Render'da çalışıyorsa bilgi ver
-if is_render:
-    st.info("🌐 Bu uygulama Render'da çalışıyor. Kamera erişimi olmadığı için dosya yükleme özelliği kullanılacak.")
 
 def get_camera_frame():
     """
@@ -63,71 +55,24 @@ if choice == "Kullanıcı Kaydı (Admin)":
     st.header("Kullanıcı Kaydı (Admin)")
     admin_pass = st.text_input("Admin Parolası", type="password")
     user_name = st.text_input("Kullanıcı Adı")
-    
-    # Render'da çalışıyorsa dosya yükleme seçeneği sun
-    if is_render:
-        st.info("📁 Render'da kamera erişimi olmadığı için fotoğraf yükleme kullanın.")
-        uploaded_file = st.file_uploader("Yüz fotoğrafı yükleyin", type=['jpg', 'jpeg', 'png'])
-        
-        if st.button("Fotoğraftan Kayıt Al", key="enroll_button"):
-            if admin_pass != ADMIN_PASSWORD:
-                st.error("Yetkisiz erişim!")
-            elif not user_name:
-                st.error("Kullanıcı adı girilmelidir.")
-            elif uploaded_file is None:
-                st.error("Lütfen bir fotoğraf yükleyin!")
-            else:
-                # Yüklenen dosyayı işle
-                file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-                frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-                
-                if frame is None:
-                    st.error("❌ Fotoğraf okunamadı!")
+    if st.button("Kameradan Kayıt Al", key="enroll_button"):
+        if admin_pass != ADMIN_PASSWORD:
+            st.error("Yetkisiz erişim!")
+        elif not user_name:
+            st.error("Kullanıcı adı girilmelidir.")
+        else:
+            # Kamera başlat - Önce OBS Virtual Camera, sonra bilgisayar kamerası dene
+            cap = cv2.VideoCapture(1)  # OBS Virtual Camera (İndeks 1)
+            if not cap.isOpened():
+                cap = cv2.VideoCapture(0)  # Bilgisayar kamerası (İndeks 0)
+                if cap.isOpened():
+                    st.info("📷 OBS Virtual Camera bulunamadı, bilgisayar kamerası kullanılıyor")
                 else:
-                    st.success("📷 Fotoğraf başarıyla yüklendi!")
-                    st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), caption="Yüklenen Fotoğraf")
-                    
-                    # Yüz tespiti ve kayıt işlemi
-                    detector = FaceMeshDetector()
-                    embedder = FaceEmbedder()
-                    
-                    face_count = detector.count_faces(frame)
-                    if face_count == 0:
-                        st.error("❌ Fotoğrafta yüz tespit edilemedi!")
-                    elif face_count > 1:
-                        st.error("❌ Fotoğrafta birden fazla yüz var! Lütfen tek yüz içeren bir fotoğraf yükleyin.")
-                    else:
-                        face = detector.get_face_crop(frame)
-                        if face is not None:
-                            embedding = embedder.get_embedding(face)
-                            if embedding is not None:
-                                db = FaceDatabase()
-                                db.add_embedding(f"{user_name}_pose_1", embedding)
-                                st.success(f"✅ {user_name} başarıyla kaydedildi!")
-                            else:
-                                st.error("❌ Yüz embedding'i çıkarılamadı!")
-                        else:
-                            st.error("❌ Yüz kırpılamadı!")
-    else:
-        # Yerel çalışma için kamera kullan
-        if st.button("Kameradan Kayıt Al", key="enroll_button"):
-            if admin_pass != ADMIN_PASSWORD:
-                st.error("Yetkisiz erişim!")
-            elif not user_name:
-                st.error("Kullanıcı adı girilmelidir.")
+                    st.error("❌ Hiçbir kamera bulunamadı!")
+                    cap.release()
+                    st.stop()
             else:
-                # Kamera başlat - Önce OBS Virtual Camera, sonra bilgisayar kamerası dene
-                cap = cv2.VideoCapture(1)  # OBS Virtual Camera (İndeks 1)
-                if not cap.isOpened():
-                    cap = cv2.VideoCapture(0)  # Bilgisayar kamerası (İndeks 0)
-                    if cap.isOpened():
-                        st.info("📷 OBS Virtual Camera bulunamadı, bilgisayar kamerası kullanılıyor")
-                    else:
-                        st.error("❌ Hiçbir kamera bulunamadı!")
-                        cap.release()
-                        st.stop()
-                else:
-                    st.success("📷 OBS Virtual Camera kullanılıyor")
+                st.success("📷 OBS Virtual Camera kullanılıyor")
             detector = FaceMeshDetector()
             embedder = FaceEmbedder()
             st.info("🎥 Kameraya bakın ve tek bir yüzünüzün görünmesini sağlayın...")
@@ -330,80 +275,19 @@ elif choice == "Yüz Doğrulama":
     st.header("Yüz Doğrulama (Face Verification)")
     user_name = st.text_input("Kullanıcı Adı")
     threshold = st.slider("Eşik Değeri (%)", 50, 100, 70)
-    
-    # Render'da çalışıyorsa dosya yükleme seçeneği sun
-    if is_render:
-        st.info("📁 Render'da kamera erişimi olmadığı için fotoğraf yükleme kullanın.")
-        uploaded_file = st.file_uploader("Doğrulanacak yüz fotoğrafı yükleyin", type=['jpg', 'jpeg', 'png'])
-        
-        if st.button("Fotoğraftan Doğrula", key="verify_button"):
-            if not user_name:
-                st.error("Kullanıcı adı girilmelidir.")
-            elif uploaded_file is None:
-                st.error("Lütfen bir fotoğraf yükleyin!")
+    if st.button("Kameradan Doğrula", key="verify_button"):
+        # Kamera başlat - Önce OBS Virtual Camera, sonra bilgisayar kamerası dene
+        cap = cv2.VideoCapture(1)  # OBS Virtual Camera (İndeks 1)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(0)  # Bilgisayar kamerası (İndeks 0)
+            if cap.isOpened():
+                st.info("📷 OBS Virtual Camera bulunamadı, bilgisayar kamerası kullanılıyor")
             else:
-                # Yüklenen dosyayı işle
-                file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-                frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-                
-                if frame is None:
-                    st.error("❌ Fotoğraf okunamadı!")
-                else:
-                    st.success("📷 Fotoğraf başarıyla yüklendi!")
-                    st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), caption="Doğrulanacak Fotoğraf")
-                    
-                    # Yüz doğrulama işlemi
-                    detector = FaceMeshDetector()
-                    embedder = FaceEmbedder(pca_model_path="models/saved/pca_arcface_model.joblib")
-                    db = FaceDatabase()
-                    all_users = db.get_all_embeddings()
-                    
-                    # Kullanıcının tüm pozlarını bul (user_name ile başlayan)
-                    user_embeddings = [emb for uid, emb in all_users if uid.startswith(user_name)]
-                    if not user_embeddings:
-                        st.error(f"Kullanıcı bulunamadı: {user_name}")
-                        st.info("💡 Kullanıcının kayıtlı pozları: " + ", ".join([uid for uid, _ in all_users if uid.startswith(user_name.split('_')[0])]))
-                    else:
-                        face_count = detector.count_faces(frame)
-                        if face_count == 0:
-                            st.error("❌ Fotoğrafta yüz tespit edilemedi!")
-                        elif face_count > 1:
-                            st.error("❌ Fotoğrafta birden fazla yüz var! Lütfen tek yüz içeren bir fotoğraf yükleyin.")
-                        else:
-                            face = detector.get_face_crop(frame)
-                            if face is not None:
-                                embedding = embedder.get_embedding(face)
-                                if embedding is not None:
-                                    similarities = [embedder.calculate_similarity(embedding, db_emb) for db_emb in user_embeddings]
-                                    max_similarity = max(similarities)
-                                    
-                                    # Benzerlik durumuna göre renk kodlaması
-                                    if max_similarity >= threshold:
-                                        st.success(f"✅ Benzerlik: %{max_similarity:.2f} (Eşik: %{threshold})")
-                                        st.success(f"🎉 Giriş başarılı! Hoş geldiniz, {user_name}!")
-                                    else:
-                                        st.error(f"❌ Benzerlik: %{max_similarity:.2f} (Eşik: %{threshold})")
-                                        st.error(f"🚫 Giriş reddedildi! Benzerlik yetersiz.")
-                                        log_failed_attempt(user_name, max_similarity, ip="localhost")
-                                else:
-                                    st.error("❌ Yüz embedding'i çıkarılamadı!")
-                            else:
-                                st.error("❌ Yüz kırpılamadı!")
-    else:
-        # Yerel çalışma için kamera kullan
-        if st.button("Kameradan Doğrula", key="verify_button"):
-            # Kamera başlat - Önce OBS Virtual Camera, sonra bilgisayar kamerası dene
-            cap = cv2.VideoCapture(1)  # OBS Virtual Camera (İndeks 1)
-            if not cap.isOpened():
-                cap = cv2.VideoCapture(0)  # Bilgisayar kamerası (İndeks 0)
-                if cap.isOpened():
-                    st.info("📷 OBS Virtual Camera bulunamadı, bilgisayar kamerası kullanılıyor")
-                else:
-                    st.error("❌ Hiçbir kamera bulunamadı!")
-                    cap.release()
-                    st.stop()
-            else:
-                st.success("📷 OBS Virtual Camera kullanılıyor")
+                st.error("❌ Hiçbir kamera bulunamadı!")
+                cap.release()
+                st.stop()
+        else:
+            st.success("📷 OBS Virtual Camera kullanılıyor")
         detector = FaceMeshDetector()
         embedder = FaceEmbedder(pca_model_path="models/saved/pca_arcface_model.joblib")
         db = FaceDatabase()
