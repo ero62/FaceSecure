@@ -40,16 +40,13 @@ class ArcFace:
             faces = self.app.get(face_rgb)
             
             if len(faces) == 0:
-                print("Debug: ArcFace get_embedding - yüz bulunamadı")
                 return None
             
             # İlk yüzün embedding'ini al
             embedding = faces[0].embedding
-            print(f"Debug: ArcFace get_embedding - embedding shape: {embedding.shape}")
             
             return embedding
         except Exception as e:
-            print(f"Debug: ArcFace get_embedding hatası: {e}")
             return None
 
     def get_face_info(self, face_img):
@@ -61,11 +58,8 @@ class ArcFace:
             faces = self.app.get(face_rgb)
             
             if len(faces) == 0:
-                print("Debug: ArcFace get_face_info - yüz bulunamadı")
                 return None
             
-            print(f"Debug: ArcFace get_face_info - {len(faces)} yüz bulundu")
             return faces[0]
         except Exception as e:
-            print(f"Debug: ArcFace get_face_info hatası: {e}")
             return None 

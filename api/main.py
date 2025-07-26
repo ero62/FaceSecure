@@ -2,9 +2,14 @@ from flask import Flask, request, jsonify
 import jwt
 import datetime
 import numpy as np
+import sys
+import os
+
+# Proje kök dizinini Python path'ine ekle
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from models.face_embedder import FaceEmbedder
 from models.database import FaceDatabase
-import os
 from models.face_mesh_detector import FaceMeshDetector
 from dotenv import load_dotenv
 

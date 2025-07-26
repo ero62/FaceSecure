@@ -1,15 +1,15 @@
-tensorflow==2.11.0
-keras==2.11.0
-opencv-python==4.8.1.78
-mediapipe==0.10.3       # ✅ protobuf 3.20 ile uyumlu
-numpy==1.23.5
-scikit-learn==1.2.2
-joblib==1.2.0
-pyjwt==2.8.0
-flask==2.3.3
-pymongo==4.5.0
-python-dotenv==1.0.0
-streamlit==1.47.0       # ✅ protobuf >=3.20 ile çalışır
-protobuf==3.20.0         # ✅ Her ikisiyle de uyumlu
-insightface==0.7.3       # ArcFace için
-onnxruntime==1.16.3      # ArcFace model çalıştırma için
+tensorflow>=2.13.0
+keras>=2.13.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+numpy>=1.24.0
+scikit-learn>=1.3.0
+joblib>=1.3.0
+pyjwt>=2.8.0
+flask>=2.3.0
+pymongo>=4.5.0
+python-dotenv>=1.0.0
+streamlit>=1.28.0
+protobuf>=4.25.0
+insightface>=0.7.3
+onnxruntime>=1.16.0

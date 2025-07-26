@@ -68,7 +68,6 @@ class FaceMeshDetector:
                 return image[y_min:y_max, x_min:x_max]
         
         # MediaPipe başarısız olursa OpenCV ile dene
-        print("Debug: MediaPipe başarısız, OpenCV deneniyor...")
         return self.get_face_crop_opencv(image)
 
     def count_faces(self, image):
@@ -79,7 +78,6 @@ class FaceMeshDetector:
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(rgb_image)
         if results.multi_face_landmarks:
-            print(f"Debug: MediaPipe ile {len(results.multi_face_landmarks)} yüz tespit edildi")
             return len(results.multi_face_landmarks)
         
         # MediaPipe başarısız olursa OpenCV ile dene
@@ -90,7 +88,6 @@ class FaceMeshDetector:
             minNeighbors=2,    # Daha düşük eşik
             minSize=(20, 20)   # Daha küçük yüzler
         )
-        print(f"Debug: OpenCV ile {len(faces)} yüz tespit edildi")
         return len(faces)
 
     def count_faces_opencv(self, image):

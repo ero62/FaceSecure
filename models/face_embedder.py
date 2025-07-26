@@ -37,103 +37,75 @@ class FaceEmbedder:
         Yüz embedding'ini ArcFace ile çıkarır, opsiyonel olarak PCA uygular.
         """
         try:
-            print(f"Debug: get_embedding çağrıldı, face_img shape: {face_img.shape}")
-            
             # 1. Doğrudan ArcFace embedding dene (en hızlı)
             try:
                 embedding = self.embedder.get_embedding(face_img)
                 if embedding is not None:
-                    print(f"Debug: Doğrudan embedding başarılı, shape: {embedding.shape}")
                     # L2 normalizasyonu uygula
                     norm_embed = self.normalizer.transform([embedding])[0]
                     
                     if self.pca and not skip_pca:
                         if hasattr(self.pca, 'n_components_') and self.pca.n_components_ > 0:
                             norm_embed = self.pca.transform([norm_embed])[0]
-                            print(f"Debug: PCA uygulandı, boyut: {self.pca.n_components_}")
-                        else:
-                            print("Debug: PCA boyutu 0, PCA atlandı")
                     
-                    print(f"Debug: Final embedding shape: {norm_embed.shape}")
                     return norm_embed
             except Exception as e:
-                print(f"Debug: Doğrudan embedding hatası: {e}")
+                pass
             
             # 2. ArcFace face_info ile dene
             try:
-                print("Debug: face_info deneniyor")
                 face_info = self.embedder.get_face_info(face_img)
                 if face_info is not None:
                     embedding = face_info.embedding
-                    print(f"Debug: face_info ile embedding başarılı, shape: {embedding.shape}")
                     # L2 normalizasyonu uygula
                     norm_embed = self.normalizer.transform([embedding])[0]
                     
                     if self.pca and not skip_pca:
                         if hasattr(self.pca, 'n_components_') and self.pca.n_components_ > 0:
                             norm_embed = self.pca.transform([norm_embed])[0]
-                            print(f"Debug: PCA uygulandı, boyut: {self.pca.n_components_}")
-                        else:
-                            print("Debug: PCA boyutu 0, PCA atlandı")
                     
-                    print(f"Debug: Final embedding shape: {norm_embed.shape}")
                     return norm_embed
             except Exception as e:
-                print(f"Debug: face_info hatası: {e}")
+                pass
             
             # 3. Preprocessing ile dene
             try:
-                print("Debug: preprocessing deneniyor")
                 preprocessed = self.preprocess_face(face_img)
                 embedding = self.embedder.get_embedding(preprocessed)
                 if embedding is not None:
-                    print(f"Debug: Preprocessing ile embedding başarılı, shape: {embedding.shape}")
                     # L2 normalizasyonu uygula
                     norm_embed = self.normalizer.transform([embedding])[0]
                     
                     if self.pca and not skip_pca:
                         if hasattr(self.pca, 'n_components_') and self.pca.n_components_ > 0:
                             norm_embed = self.pca.transform([norm_embed])[0]
-                            print(f"Debug: PCA uygulandı, boyut: {self.pca.n_components_}")
-                        else:
-                            print("Debug: PCA boyutu 0, PCA atlandı")
                     
-                    print(f"Debug: Final embedding shape: {norm_embed.shape}")
                     return norm_embed
             except Exception as e:
-                print(f"Debug: preprocessing hatası: {e}")
+                pass
             
             # 4. OpenCV fallback
             try:
-                print("Debug: OpenCV fallback deneniyor")
                 from models.face_mesh_detector import FaceMeshDetector
                 detector = FaceMeshDetector()
                 face_crop = detector.get_face_crop_opencv(face_img)
                 if face_crop is not None:
-                    print(f"Debug: OpenCV crop başarılı, shape: {face_crop.shape}")
                     embedding = self.embedder.get_embedding(face_crop)
                     if embedding is not None:
-                        print(f"Debug: OpenCV crop ile embedding başarılı, shape: {embedding.shape}")
                         # L2 normalizasyonu uygula
                         norm_embed = self.normalizer.transform([embedding])[0]
                         
                         if self.pca and not skip_pca:
                             if hasattr(self.pca, 'n_components_') and self.pca.n_components_ > 0:
                                 norm_embed = self.pca.transform([norm_embed])[0]
-                                print(f"Debug: PCA uygulandı, boyut: {self.pca.n_components_}")
-                            else:
-                                print("Debug: PCA boyutu 0, PCA atlandı")
                         
-                        print(f"Debug: Final embedding shape: {norm_embed.shape}")
                         return norm_embed
             except Exception as e:
-                print(f"Debug: OpenCV fallback hatası: {e}")
+                pass
             
-            print("Debug: Tüm yöntemler başarısız")
             return None
             
         except Exception as e:
-            print(f"Debug: get_embedding genel hatası: {e}")
             return None
 
     def calculate_similarity(self, emb1, emb2):
@@ -146,26 +118,16 @@ class FaceEmbedder:
         
         # Embedding boyut kontrolü
         if emb1.size == 0 or emb2.size == 0:
-            print("Debug: Boş embedding tespit edildi")
             return 0.0
         
         # Boyut uyumsuzluğu kontrolü - PCA uygulanmış embedding ile karşılaştırma
         if emb1.shape != emb2.shape:
-            print(f"Debug: Embedding boyutları uyumsuz: {emb1.shape} vs {emb2.shape}")
-            
-            # Eğer emb1 PCA uygulanmış (53 boyutlu) ve emb2 orijinal (512 boyutlu) ise
-            if emb1.shape[0] == 53 and emb2.shape[0] == 512:
-                print("Debug: PCA uygulanmış embedding ile orijinal embedding karşılaştırılıyor")
+            # Eğer emb1 PCA uygulanmış ve emb2 orijinal ise
+            if emb1.shape[0] < emb2.shape[0] and self.pca:
                 # emb2'ye de PCA uygula
-                if self.pca:
-                    emb2_pca = self.pca.transform([emb2])[0]
-                    emb2 = emb2_pca
-                    print(f"Debug: emb2'ye PCA uygulandı, yeni boyut: {emb2.shape}")
-                else:
-                    print("Debug: PCA modeli bulunamadı, karşılaştırma yapılamıyor")
-                    return 0.0
+                emb2_pca = self.pca.transform([emb2])[0]
+                emb2 = emb2_pca
             else:
-                print("Debug: Farklı boyut türleri, karşılaştırma yapılamıyor")
                 return 0.0
         
         # Cosine similarity hesapla

@@ -245,15 +245,12 @@ if choice == "Kullanıcı Kaydı (Admin)":
                                 # PCA modelini güncelle
                                 st.info("🔄 PCA modeli güncelleniyor...")
                                 try:
-                                    import subprocess
-                                    result = subprocess.run(["python", "models/train_arcface_pca.py"], 
-                                                          capture_output=True, text=True)
-                                    if result.returncode == 0:
-                                        st.success("✅ PCA modeli güncellendi!")
-                                    else:
-                                        st.warning("⚠️ PCA güncelleme hatası, manuel güncelleme gerekebilir")
+                                    from models.train_arcface_pca import train_arcface_pca
+                                    train_arcface_pca()
+                                    st.success("✅ PCA modeli güncellendi!")
                                 except Exception as e:
                                     st.warning(f"⚠️ PCA güncelleme hatası: {e}")
+                                    st.info("💡 Manuel güncelleme için: python models/train_arcface_pca.py")
                             else:
                                 st.error(f"❌ Sadece {len(embeddings)}/{poses_needed} poz kaydedildi")
                                 st.info("💡 Daha fazla farklı açı deneyin")
@@ -296,7 +293,12 @@ elif choice == "Yüz Doğrulama":
         user_embeddings = [emb for uid, emb in all_users if uid.startswith(user_name)]
         if not user_embeddings:
             st.error(f"Kullanıcı bulunamadı: {user_name}")
-            st.info("💡 Kullanıcının kayıtlı pozları: " + ", ".join([uid for uid, _ in all_users if uid.startswith(user_name.split('_')[0])]))
+            # Mevcut kullanıcıları göster
+            unique_users = set()
+            for uid, _ in all_users:
+                base_name = uid.split('_pose_')[0] if '_pose_' in uid else uid
+                unique_users.add(base_name)
+            st.info("💡 Mevcut kullanıcılar: " + ", ".join(unique_users))
         else:
             verified = False
             status_text = st.empty()
@@ -376,8 +378,18 @@ elif choice == "Kullanıcı Sil (Admin)":
             st.error("Kullanıcı adı girilmelidir.")
         else:
             db = FaceDatabase()
-            db.delete_user(user_name)
-            st.success(f"{user_name} silindi!")
+            # Kullanıcının tüm pozlarını sil
+            deleted_count = 0
+            all_users = db.get_all_embeddings()
+            for uid, _ in all_users:
+                if uid.startswith(user_name):
+                    db.delete_user(uid)
+                    deleted_count += 1
+            
+            if deleted_count > 0:
+                st.success(f"{user_name} için {deleted_count} poz silindi!")
+            else:
+                st.warning(f"{user_name} kullanıcısı bulunamadı!")
 
 elif choice == "Hatalı Giriş Logları":
     st.header("Hatalı Giriş Logları")
